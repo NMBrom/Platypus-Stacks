@@ -1,0 +1,141 @@
+Stacks V2.1 commands
+#process_radtags (in folder Process_Rad_21)
+nohup bash -c 'for file in *.FASTQ.gz; do id=`echo "$file" | sed 's/.FASTQ.gz//g'`; grep "$id" barcodes.txt > $id.barcodes.txt; /home/nmbromle/platypus/programs/stacks-2.1/bin/process_radtags -f $file -o . -i gzfastq -y gzfastq -r -c -q -b $id.barcodes.txt --disable_rad_check; rm $id.barcodes.txt; done' &
+
+#trimmomatic (in Trimmomatic_21)
+nohup bash -c 'for file in *.fq.gz; do java -jar /home/nmbromle/platypus/programs/Trimmomatic-0.36/trimmomatic-0.36.jar SE -threads 8 -phred33 $file $file.good AVGQUAL:20 > $file.trim.log; done' &
+
+#Ustacks (in Ustacks_21) submit using ‘num=`echo "0"`; for file in *.1.fq.gz; do num=`expr $num + 1`; qsub ustacks2.sh $file $num; done’
+
+ustacks2.sh file contains command:
+#!/bin/sh
+#$ -S /bin/sh
+#$ -N ustacks
+#$ -cwd
+#$ -pe smp 12
+#$ -q Virtual
+
+/home/nmbromle/platypus/programs/stacks-2.1/bin/ustacks -t gzfastq -f $1 -o . -i $2 -m 3 -M 3 -p 12 > $1.ustacks.log 2>&1
+
+#Cstacks (in Cstacks_21)
+nohup /home/nmbromle/platypus/programs/stacks-2.1/bin/cstacks -P . -n 3 -p 24 -M /home/nmbromle/platypus/popmap_nodup1 > cstacks.log &
+
+#Sstacks (in Sstacks_21)
+ nohup /home/nmbromle/platypus/programs/stacks-2.1/bin/sstacks -P . -p 24 -M /home/nmbromle/platypus/popmap_nodup1 > sstacks.log & 
+
+#tsv2bam (output in Bam_21):
+nohup /home/nmbromle/platypus/programs/stacks-2.1/bin/tsv2bam -P . -t 8 -M /home/nmbromle/platypus/popmap_nodup1 > bam.log &
+
+#gstacks (output in Gstacks_21):
+
+#(marukilow is default model, 0.05 default alpha SNPs on marukilow, 0.05 default alpha on genotypes all models):
+
+nohup /home/nmbromle/platypus/programs/stacks-2.1/bin/gstacks –P . –t 12 –M /home/nmbromle/platypus/popmap_nodup1 > gstacks.log &
+
+#Align1 (BWA index) in Align1_21
+/home/nmbromle/platypus/programs/bwa-0.7.17/bwa index -p platypus -a bwtsw Platypus_genome.NCBI.fasta.gz 
+
+/home/nmbromle/platypus/programs/bwa-0.7.17/bwa mem /home/nmbromle/platypus/Align1_21/platypus ./catalog.fa.gz | samtools view -b | samtools sort > ./catalog_loci.bam
+
+
+#(remember catalog_loci.bam file created at bwa mem stage) 
+
+#Stacks integrate alignments (V2.1 stacks, input in Align2_21, output in Align3_21):
+nohup /home/nmbromle/platypus/programs/stacks-2.1/bin/stacks-integrate-alignments –P /home/nmbromle/platypus/Align2_21 –B /home/nmbromle/platypus/Align2_21/cataog_loci.bam –O /home/nmbromle/platypus/Align3_21 &
+
+
+#Populations (v2.1 stacks, output in POPx, input files in POP_21):
+nohup /home/nmbromle/platypus/programs/stacks-2.1/bin/populations -P . -t 8 -O /home/nmbromle/platypus/POP1 -M /home/nmbromle/platypus/popmap_nodup1 -p 5 -r 0.7 --min_maf 0.01 --vcf --genepop --structure --fasta_loci --write_single_snp > POP1.log &
+
+nohup /home/nmbromle/platypus/programs/stacks-2.1/bin/populations -P . -t 8 -O /home/nmbromle/platypus/POP2 -M /home/nmbromle/platypus/popmap_nodup1 -p 5 -r 0.7 --min_maf 0.05 --vcf --genepop --structure --fasta_loci --write_single_snp > POP2.log &
+
+nohup /home/nmbromle/platypus/programs/stacks-2.1/bin/populations -P . -t 8 -O /home/nmbromle/platypus/POP3 -M /home/nmbromle/platypus/popmap_nodup1 -p 6 -r 0.8 --min_maf 0.01 --vcf --genepop --structure --fasta_loci --write_single_snp > POP3.log &
+
+nohup /home/nmbromle/platypus/programs/stacks-2.1/bin/populations -P . -t 8 -O /home/nmbromle/platypus/POP4 -M /home/nmbromle/platypus/popmap_nodup1 -p 6 -r 0.8 --min_maf 0.05 --vcf --genepop --structure --fasta_loci --write_single_snp > POP4.log &
+
+nohup /home/nmbromle/platypus/programs/stacks-2.1/bin/populations -P . -t 8 -O /home/nmbromle/platypus/POP5 -M /home/nmbromle/platypus/popmap_nodup1 -p 7 -r 0.9 --min_maf 0.01 --vcf --genepop --structure --fasta_loci --write_single_snp > POP5.log &
+
+nohup /home/nmbromle/platypus/programs/stacks-2.1/bin/populations -P . -t 8 -O /home/nmbromle/platypus/POP6 -M /home/nmbromle/platypus/popmap_nodup1 -p 7 -r 0.9 --min_maf 0.05 --vcf --genepop --structure --fasta_loci --write_single_snp > POP6.log &
+
+#Summary Stats:
+sh summarize_vcf.sh popmap_nodup1 populations.snps.vcf
+
+nohup sh summarize_vcf.sh popmap_nodup1 populations.snps.vcf &
+
+#'summarize_vcf.sh' code:
+## USAGE: sh summarize_vcf.sh <popmap> <Stacks VCF>
+## popmap file format: sampleID<tab>populationID
+
+# Counting total SNPs
+
+fgrep -v "#" $2 > $2.snps
+wc -l $2.snps | awk '{print "Total SNPs: "$1}' > $2.snps.summary
+echo "" >> $2.snps.summary
+
+# Calculating Min, Average, Max read depths
+
+echo "#CHROM	POS	REF	ALT	MIN_DEPTH	AVG_DEPTH	MAXDEPTH" > $2.snps.readdepths
+while read line
+do
+snpinfo=`echo "$line" | awk -F"\t" '{print $1"\t"$2"\t"$4"\t"$5}'`
+avgdepth=`echo "$line" | awk '{$1=$2=$3=$4=$5=$6=$7=$8=$9=""; print $0}' 'FS=\t' 'OFS=\t' | perl -pe 's/^\t+//g' | perl -pe 's/\t/\n/g' | fgrep -v "./." | awk -F":" '{SUM+=$2}END{print SUM/NR}'`
+mindepth=`echo "$line" | awk '{$1=$2=$3=$4=$5=$6=$7=$8=$9=""; print $0}' 'FS=\t' 'OFS=\t' | perl -pe 's/^\t+//g' | perl -pe 's/\t/\n/g' | fgrep -v "./." | awk -F":" '{print $2}' | sort -n | head -1`
+maxdepth=`echo "$line" | awk '{$1=$2=$3=$4=$5=$6=$7=$8=$9=""; print $0}' 'FS=\t' 'OFS=\t' | perl -pe 's/^\t+//g' | perl -pe 's/\t/\n/g' | fgrep -v "./." | awk -F":" '{print $2}' | sort -nr | head -1`
+echo "$snpinfo	$mindepth	$avgdepth	$maxdepth"
+done<"$2.snps">>"$2.snps.readdepths"
+
+grep -vP "^#" $2.snps.readdepths | awk -F"\t" '{SUM+=$5}END{print "(Average) min read depth: "SUM/NR}' >> $2.snps.summary
+grep -vP "^#" $2.snps.readdepths | awk -F"\t" '{SUM+=$6}END{print "(Average) average read depth: "SUM/NR}' >> $2.snps.summary
+grep -vP "^#" $2.snps.readdepths | awk -F"\t" '{SUM+=$7}END{print "(Average) max read depth: "SUM/NR}' >> $2.snps.summary
+echo "" >> $2.snps.summary
+
+# Calculating Sample and Population level representation
+
+# sample level
+while read line
+do
+totsamp=`echo "$line" | awk '{$1=$2=$3=$4=$5=$6=$7=$8=$9=""; print $0}' 'FS=\t' 'OFS=\t' | perl -pe 's/^\t+//g' | awk -F"\t" '{print NF}'`
+echo "$line" | awk '{$1=$2=$3=$4=$5=$6=$7=$8=$9=""; print $0}' 'FS=\t' 'OFS=\t' | perl -pe 's/^\t+//g' | perl -pe 's/\t/\n/g' | fgrep -v "./." | wc -l | awk -v var="$totsamp" '{print $1"/"var}'
+done<"$2.snps">"samplerep"
+
+# within population level
+while read line
+do
+sample=`echo "$line" | awk -F"\t" '{print $1}'`
+pop=`echo "$line" | awk -F"\t" '{print $2}' | perl -pe 's/ /\_/g'`
+colnum=`fgrep -v "##" $2 | fgrep "#" | perl -pe 's/\t/\n/g' | sed '/^$/d' | fgrep -n "$sample" | awk -F":" '{print $1}'`
+fgrep -v "#" $2 | awk -F"\t" -v var="$colnum" '{print $var}' > tmp.$pop.$sample.snps
+done<"$1"
+
+awk -F"\t" '{print $2}' $1 | perl -pe 's/ /\_/g' | sort | uniq > $1.pops
+awk -F"\t" '{print $1"\t"$2"\t"$4"\t"$5}' $2.snps > snplist
+touch poptmp
+
+cat $1.pops | perl -pe 's/\n/\t/g' | awk '{print "#CHROM	POS	REF	ALT	SAMPLE_LEVEL_REP	POP_LEVEL_REP	"$0}' > $2.snps.poprep
+
+while read line
+do
+numsamp=`ls tmp.$line.*.snps | wc -l | awk '{print $1}'`
+paste tmp.$line.*.snps | perl -pe 's/\:\S+//g' | while read line; do echo "$line" | perl -pe 's/\t/\n/g' | fgrep -v "./." | wc -l | awk -v var="$numsamp" '{print $1"/"var}'; done | paste poptmp - | perl -pe 's/^\t//g' > poptmp2
+mv poptmp2 poptmp
+done<"$1.pops"
+
+# across populations
+perl -pe 's/\/\S+//g' poptmp | while read line; do totpop=`echo "$line" | awk -F"\t" '{print NF}'`; echo "$line" | perl -pe 's/\t/\n/g' | grep -vP "^0$" | wc -l | awk -v var="$totpop" '{print $1"/"var}'; done > acrosspop
+
+paste snplist samplerep acrosspop poptmp >> $2.snps.poprep
+rm snplist poptmp acrosspop samplerep
+rm tmp.*.snps
+rm $1.pops
+rm $2.snps
+
+grep -vP "^#" $2.snps.poprep | awk -F"\t" '{print $5}' | sort -n | head -1 | awk '{print "(Min) Presence of loci across all samples: "$0}' >> $2.snps.summary
+grep -vP "^#" $2.snps.poprep | awk -F"\t" '{print $5}' | awk -F"/" '{SUM+=$1}END{print "(Average) Presence of loci across all samples: "SUM/NR"/"$2}' >> $2.snps.summary
+grep -vP "^#" $2.snps.poprep | awk -F"\t" '{print $5}' | sort -nr | head -1 | awk '{print "(Max) Presence of loci across all samples: "$0}' >> $2.snps.summary
+echo "" >> $2.snps.summary
+
+grep -vP "^#" $2.snps.poprep | awk -F"\t" '{print $6}' | sort -n | head -1 | awk '{print "(Min) Presence of loci across populations: "$0}' >> $2.snps.summary
+grep -vP "^#" $2.snps.poprep | awk -F"\t" '{print $6}' | awk -F"/" '{SUM+=$1}END{print "(Average) Presence of loci across populations: "SUM/NR"/"$2}' >> $2.snps.summary
+grep -vP "^#" $2.snps.poprep | awk -F"\t" '{print $6}' | sort -nr | head -1 | awk '{print "(Max) Presence of loci across populations: "$0}' >> $2.snps.summary
+echo "" >> $2.snps.summary
+
